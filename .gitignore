@@ -1,0 +1,145 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribuição / build
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtual environments
+.env
+.venv
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+
+# =========================
+# 📓 Jupyter Notebook
+# =========================
+.ipynb_checkpoints
+
+# =========================
+# 🧪 Testes / Coverage
+# =========================
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# =========================
+# 📊 ML / Data / Artifacts
+# =========================
+
+# MLflow
+mlruns/
+mlartifacts/
+MLFlow/
+
+# Modelos treinados
+*.pt
+*.pth
+*.pkl
+*.joblib
+*.h5
+*.onnx
+
+# Dados grandes
+data/
+datasets/
+*.csv
+*.tsv
+*.parquet
+*.feather
+
+# Outputs
+outputs/
+artifacts/
+results/
+reports/
+
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# Docker
+# =========================
+*.tar
+*.img
+
+# =========================
+# Sistema Operacional
+# =========================
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# =========================
+# IDEs / Editores
+# =========================
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+# Sublime
+*.sublime-workspace
+*.sublime-project
+
+# =========================
+# Secrets / Config
+# =========================
+.env
+.env.*
+*.env
+
+# Credenciais GCP / AWS
+*.json
+*.key
+*.pem
+
+# =========================
+# Misc
+# =========================
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# Dataset pequeno para exemplo
+# sample_dataset/
+
+# README gerados automaticamente
+# docs/build/
+
+
+ocr_batch_dataset/
+real_inference_dataset/

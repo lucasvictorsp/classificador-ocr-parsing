@@ -1,0 +1,79 @@
+services:
+  mlflow:
+    build: .
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////app/mlruns/mlflow.db
+      --default-artifact-root /app/mlartifacts
+      --host 0.0.0.0
+      --port 5000
+      --allowed-hosts "localhost,localhost:5000,127.0.0.1,127.0.0.1:5000,mlflow,mlflow:5000"
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+
+  trainer:
+    build: .
+    profiles:
+      - train
+    depends_on:
+      - mlflow
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - .:/app
+      - ./dataset_augmented:/app/dataset_augmented
+    command: >
+      python src/train_classifier.py
+      --dataset-dir /app/dataset_augmented
+      --mlflow-tracking-uri http://mlflow:5000
+      --batch-size 32
+      --epochs 30
+      --learning-rate 0.0005
+      --weight-decay 0.00005
+      --run-name efficientnet_b0_bs4_ep10_lr5e4_blocks2
+
+  real-inference:
+    build: .
+    profiles:
+      - inference
+    depends_on:
+      - mlflow
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - .:/app
+      - ${REAL_INFERENCE_DATASET:-./sample_dataset_inference}:/app/real_inference_dataset:ro
+    command: >
+      python src/batch_infer_classifier.py
+      --dataset-dir /app/real_inference_dataset
+      --checkpoint /app/artifacts/document_classifier/best_model.pt
+      --output-dir /app/artifacts/document_classifier/${REAL_INFERENCE_OUTPUT:-real_inference}
+      --mlflow-tracking-uri http://mlflow:5000
+      --run-name ${REAL_INFERENCE_RUN_NAME:-real_inference}
+
+  ocr-parsing:
+    build: .
+    profiles:
+      - ocr
+    volumes:
+      - .:/app
+    command: >
+      python src/ocr_parsing/cli.py
+      --image ${OCR_IMAGE:-/app/sample_dataset_data_augmented_12/CPF_Frente/00010967__orig.jpg}
+      --document-type ${OCR_DOCUMENT_TYPE:-CPF_Frente}
+      --output-dir /app/artifacts/ocr_parsing
+
+  ocr-parsing-batch:
+    build: .
+    profiles:
+      - ocr-batch
+    volumes:
+      - .:/app
+      - ${OCR_BATCH_DATASET:-./sample_dataset_data_augmented_12}:/app/ocr_batch_dataset:ro
+    command: >
+      python src/ocr_parsing/batch_cli.py
+      --dataset-dir /app/ocr_batch_dataset
+      --output-dir /app/artifacts/ocr_parsing_batch
+      --continue-on-error

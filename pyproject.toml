@@ -1,0 +1,40 @@
+[project]
+name = "docket-document-classifier-case"
+version = "0.1.0"
+description = "Projeto case para a Docket. Objetivo é treinar um classificar de imagens para CNH, RG e CPF e posteriormente fazer o OCR e Parsing dos dados dos documentos. O projeto Final deve embloar uma arquitetura para produziar esse processo que deve ser capaz de rodar em um ambiente de alto estresse."
+authors = [
+    {name = "Lucas Victor Silva Pereira"},
+]
+license = "CC-BY-NC-4.0"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "albumentations>=2.0",
+    "matplotlib>=3.8",
+    "mlflow>=2.12",
+    "numpy>=1.26",
+    "opencv-python-headless>=4.10",
+    "pandas>=2.2",
+    "Pillow>=10.0",
+    "pydantic>=2.5",
+    "pytesseract>=0.3.13",
+    "scikit-learn>=1.4",
+    "torch>=2.3",
+    "torchvision>=0.18",
+    "tqdm>=4.66",
+]
+
+[tool.poetry]
+package-mode = false
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
