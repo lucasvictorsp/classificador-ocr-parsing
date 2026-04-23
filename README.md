@@ -30,7 +30,7 @@ No entanto, o projeto é completamente **agnóstico a cloud**, podendo ser execu
 
 ## Arquitetura do Sistema
 
-![Arquitetura do Projeto](arquitetura_do_projeto/desenho_arquitetura_do_projeto.png)
+![Arquitetura do Projeto](Documentos/desenho_arquitetura_do_projeto.png)
 
 ### Fluxo do Sistema
 
