@@ -12,6 +12,87 @@ O objetivo deste subprojeto é aumentar a diversidade visual de um dataset de do
 - a etapa de OCR/parsing em `src/ocr_parsing/`, que pode se beneficiar de imagens, anotações e cenários degradados para avaliação;
 - rastreabilidade experimental por meio de manifests CSV/JSON que descrevem cada arquivo gerado.
 
+---
+
+## Limitações de Hardware e Estratégia de Amostragem
+
+Devido às limitações de hardware do ambiente utilizado para treinamento — especificamente a ausência de GPU e o uso exclusivo de CPU — não foi viável utilizar o dataset completo durante o processo de treinamento da CNN EfficientNet-B0.
+
+Com o objetivo de manter um tempo de treinamento viável e garantir qualidade experimental, foi adotada uma estratégia de amostragem controlada do dataset.
+
+---
+
+## Estratégia Utilizada
+
+Foi realizada uma seleção aleatória de dados, considerando:
+
+### Classes de documentos
+
+- CNH_Frente  
+- CNH_Verso  
+- RG_Frente  
+- RG_Verso  
+- CPF_Frente  
+- CPF_Verso  
+
+### Para cada classe:
+
+- 100 imagens reais selecionadas aleatoriamente  
+- Data augmentation aplicado na proporção de **1:1**  
+
+Ou seja:
+
+> Para cada imagem real → 1 imagem aumentada  
+
+---
+
+## Dataset Final de Treinamento
+
+| Tipo de dado | Quantidade |
+|-------------|-----------|
+| Imagens reais | 600 |
+| Imagens aumentadas | 600 |
+| **Total** | **1200 imagens** |
+
+---
+
+## Justificativa Técnica
+
+Essa abordagem permitiu:
+
+- Reduzir custo computacional  
+- Tornar o treinamento viável em CPU  
+- Manter diversidade de dados através de data augmentation  
+- Simular cenários reais de entrada (imagens imperfeitas)  
+
+---
+
+## Reprodutibilidade
+
+O processo de seleção e geração do dataset foi totalmente controlado por sementes aleatórias (`seed`), garantindo:
+
+- Reprodutibilidade completa dos experimentos  
+- Consistência entre diferentes execuções  
+- Rastreabilidade do pipeline de dados  
+
+---
+
+## Dataset Utilizado
+
+O dataset final gerado para treinamento encontra-se disponível no link abaixo:
+
+[Acessar dataset_augmented no Google Drive](https://drive.google.com/file/d/1csnt9ijsGsLzGIkXc6He3rSBFmWhrCGf/view?usp=sharing)
+
+---
+
+## Observação Importante
+
+A escolha por utilizar um subconjunto do dataset não compromete a validade da prova de conceito, pois:
+
+- O objetivo principal é demonstrar a arquitetura e o pipeline  
+- O uso de data augmentation compensa parcialmente a redução de dados  
+- O modelo apresentou alta performance mesmo com dataset reduzido  
+
 ### Input
 
 As entradas esperadas são diretórios por classe contendo, para cada documento, exatamente uma anotação `.txt` e duas imagens: a imagem do documento e a máscara.

@@ -1,6 +1,6 @@
 # Document Classifier
 
-Este diretório contém o subprojeto de classificação de imagens de documentos brasileiros.
+Este diretório contém o subprojeto de classificação de imagens de documentos brasileiros (CNH, RG e CPF) utilizando a CNN EfficientNet-B0.
 
 ## Visão geral do projeto
 
@@ -320,7 +320,7 @@ Impactos:
 
 Não há binarização, retificação, filtros OpenCV ou OCR neste subprojeto.
 
-### EsplicaÇão Detalhada do pré-processamento
+### Esplicação Detalhada do pré-processamento
 
 Esse pipeline tem dois objetivos principais:
 
@@ -448,17 +448,15 @@ Note que é possível desligar parte desse processo de transformações também 
 
 ## Transfer learning e treinamento
 
-Modelo padrão:
+### Modelos Suportados
 
-```text
-efficientnet_b0
-```
+O projeto foi desenvolvido utilizando como modelo principal:
 
-Modelo alternativo suportado:
+- **efficientnet_b0** → melhor acurácia e robustez
 
-```text
-mobilenet_v3_small
-```
+Também é possível utilizar um modelo alternativo:
+
+- **mobilenet_v3_small** → mais leve, com menor custo computacional
 
 Por padrão, `build_model()` usa pesos ImageNet (`pretrained=True`) e congela o backbone (`freeze_backbone=True`). O fluxo é:
 
@@ -498,6 +496,65 @@ Justificativas e implicações:
 - Descongelar os últimos blocos é um meio-termo: permite adaptação ao domínio de documentos com menor custo que fine-tuning completo.
 - EfficientNet-B0 é uma arquitetura leve para boa relação custo/desempenho.
 - MobileNetV3 Small é opção ainda mais econômica, mas pode ter menor capacidade.
+
+---
+
+### Controle de Data Leakage (Fuga de Informação)
+
+Um ponto crítico no treinamento do modelo é evitar **data leakage**, ou seja, fuga de informação entre os conjuntos de treino, validação e teste.
+
+No contexto deste projeto, isso é especialmente importante devido ao uso intensivo de data augmentation.
+
+---
+
+#### Problema
+
+Se uma imagem original for utilizada no conjunto de treino e uma versão aumentada dessa mesma imagem for utilizada no conjunto de teste ou validação, o modelo pode:
+
+- Memorizar padrões específicos do documento  
+- Obter métricas artificialmente infladas  
+- Perder capacidade de generalização  
+
+---
+
+#### Solução Implementada
+
+Para evitar esse problema, foi adotada a seguinte estratégia:
+
+- Cada documento possui um identificador único  
+- Todas as suas variações (original + aumentadas) são tratadas como um único grupo  
+- O split dos dados é feito com base no identificador do documento  
+
+---
+
+#### Regra de Split
+
+O particionamento do dataset segue a lógica:
+
+- **Treino:** conjunto de documentos completos (original + augmentations)  
+- **Validação:** conjunto distinto de documentos completos  
+- **Teste:** conjunto distinto de documentos completos  
+
+Ou seja:
+
+> A imagem original e todas as suas versões aumentadas **sempre permanecem no mesmo conjunto**.
+
+---
+
+#### Benefícios
+
+- Evita vazamento de informação entre datasets  
+- Garante avaliação realista do modelo  
+- Preserva a integridade estatística do experimento  
+- Melhora a capacidade de generalização em produção  
+
+---
+
+#### Insight
+
+Esse cuidado é essencial em pipelines que utilizam data augmentation intensivo, sendo uma prática obrigatória em sistemas de visão computacional aplicados a dados sensíveis como documentos.
+
+---
 
 ## Métricas, avaliação e artefatos
 
@@ -567,6 +624,236 @@ Na inferência externa em lote, o MLflow recebe:
 - métricas externas;
 - artefatos da pasta de saída;
 - arquivos tabulares encontrados na raiz do dataset externo.
+
+### Prints do MLFow do treinamento executado:
+
+![MLFlow home local](Documentos/MLFlow/home.png)
+![MLflow home de treinamento](Documentos/MLFlow/train_runs.png)
+![MLFlow parte das metricas e parametros de treinamento](Documentos/MLFlow/treinamento.png)
+![MLFlow treinamento alguns gráficos](Documentos/MLFlow/metricas_de_treinamento.png)
+
+## Dados e metricas do treinamento realizado
+
+Alguns dados de um dos treinamento realizados
+
+### Resultados do Treinamento do Modelo
+
+O modelo de classificação foi treinado utilizando **EfficientNet-B0 com transfer learning**, e os resultados obtidos demonstram, a principio, alto desempenho mesmo com um dataset relativamente pequeno. Os resultados foram tão bons que acenteram um alerta para invertigação que é apresentada na secção **Conclusão do Treinamento**.
+
+---
+
+### Parâmetros de Treinamento
+
+| Parâmetro | Valor | Descrição |
+|----------|------|----------|
+| model_name | efficientnet_b0 | Arquitetura base utilizada |
+| input_size | 224 | Tamanho das imagens de entrada |
+| epochs | 30 | Número máximo de épocas |
+| batch_size | 32 | Amostras por batch |
+| learning_rate | 0.0005 | Taxa de aprendizado |
+| weight_decay | 5e-05 | Regularização L2 |
+| patience | 4 | Early stopping |
+| seed | 42 | Reprodutibilidade |
+| loss_name | cross_entropy | Função de perda |
+| threshold_percentile | 5.0 | Percentil para rejeição |
+| pretrained | True | Uso de pesos pré-treinados |
+| freeze_backbone | True | Backbone congelado |
+| train_last_blocks | 1 | Último bloco treinado |
+| device | cpu | Execução em CPU |
+
+---
+
+### Estratégia de Treinamento
+
+O treinamento utilizou **transfer learning leve**, com:
+
+- Backbone congelado (feature extractor)  
+- Treinamento apenas das camadas finais  
+- Redução de custo computacional  
+- Viabilidade em ambiente sem GPU  
+
+---
+
+### Estrutura do Modelo
+
+| Métrica | Valor |
+|--------|------|
+| Total de parâmetros | 4.015.234 |
+| Parâmetros congelados | 3.595.388 |
+| Parâmetros treináveis | 419.846 |
+
+**Insight:** Apenas ~10% dos parâmetros foram treinados, reduzindo custo e risco de overfitting.
+
+---
+
+### Distribuição dos Dados
+
+| Conjunto | Amostras |
+|---------|---------|
+| Treino | 838 |
+| Validação | 240 |
+| Teste | 122 |
+
+---
+
+### Métricas de Treinamento
+
+| Métrica | Valor |
+|--------|------|
+| train_loss | 0.0147 |
+| train_accuracy | 0.9976 |
+| val_loss | 0.0101 |
+| val_accuracy | 1.0000 |
+| val_macro_f1 | 1.0000 |
+| best_epoch | 30 |
+
+---
+
+### Métricas de Teste
+
+| Métrica | Valor |
+|--------|------|
+| test_loss | 0.0424 |
+| test_accuracy | 0.9918 |
+| test_macro_f1 | 0.9917 |
+
+---
+
+### Rejeição por Baixa Confiança
+
+O modelo implementa um mecanismo de rejeição baseado em confiança:
+
+| Métrica | Valor |
+|--------|------|
+| threshold | 0.9602 |
+| validation_rejection_rate | 5% |
+| test_rejection_rate | 13.93% |
+| test_accepted_accuracy | 1.0000 |
+
+---
+
+### Interpretação dos Resultados
+
+#### 1. Alta Performance
+
+- Acurácia de teste próxima de **99.2%**  
+- F1-score elevado (**0.9917**)  
+- **Excelente generalização dentro do mesmo conjunto de dado**
+
+---
+
+#### 2. Validação Perfeita (atenção)
+
+`val_accuracy = 1.0`
+
+Pode indicar:
+
+- Dataset pequeno 
+- Possível facilidade da tarefa  
+- Necessidade de validação com dados mais realistas  
+
+---
+
+#### 3. Estratégia de Rejeição (MUITO IMPORTANTE)
+
+O modelo rejeita previsões com baixa confiança:
+
+- ~14% dos dados de teste foram rejeitados  
+- Nos dados aceitos → **100% de acurácia**  
+
+Isso é extremamente relevante para produção.
+
+---
+
+#### 4. Trade-off Inteligente
+
+O pipeline segue:
+
+- Alta confiança → resultado direto  
+- Baixa confiança → fallback (LLM ou humano)  
+
+---
+
+#### 5. Treinamento em CPU
+
+Mesmo sem GPU:
+
+- Modelo performou extremamente bem  
+- Demonstra eficiência da abordagem  
+
+---
+
+## Conclusão do Treinamento
+
+O modelo demonstrou excelente desempenho nos conjuntos de validação e teste, apresentando alta acurácia e capacidade de generalização dentro da distribuição de dados utilizada no treinamento.
+
+Adicionalmente, foi realizada uma inferência em um conjunto de dados que não foi visto durante o treinamento, mas que pertence ao mesmo dataset de origem (apenas não amostrado na divisão de treino/validação/teste). A matriz de confusão abaixo ilustra esse resultado.
+
+![Matriz de confusão com dados pertencente a mesma distribuição do treino](Documentos/confusion_matrix_test_mesmo_distribucao_de_dados.png)
+
+Esses resultados indicam uma boa capacidade de **generalização intra-distribuição**, ou seja, quando os dados de entrada seguem o mesmo padrão do dataset original.
+
+---
+
+### Generalização fora da distribuição (Out-of-Distribution)
+
+Para avaliar a robustez do modelo em cenários mais próximos do mundo real, foi criado um pequeno conjunto de dados composto por imagens coletadas via Google Imagens e que pode ser encontrado no google drive: [dataset_google_imagens](https://drive.google.com/file/d/11t-Me_kbo8GAKBrkn3WASeyDcUXiB9A4/view?usp=sharing)
+
+#### Dados utilizados
+
+- Total de imagens coletadas: **8**  
+- Após data augmentation: **16 imagens**  
+
+Esse conjunto apresenta características significativamente diferentes do dataset de treinamento. 
+
+Ao aplicar o modelo nesse novo conjunto, observou-se uma **degradação significativa de desempenho**, conforme evidenciado pela matriz de confusão correspondente.
+
+![Matriz de confusão com dados do google imagens](Documentos/real_inference_confusion_matrix.png)
+
+---
+
+### Interpretação dos Resultados
+
+Essa diferença de desempenho evidencia um ponto crítico:
+
+> As métricas elevadas obtidas nas seções de validação e teste estão diretamente relacionadas à baixa diversidade e ao alto grau de padronização do dataset utilizado.
+
+Em outras palavras:
+
+- O modelo generaliza bem dentro do mesmo domínio  
+- Mas apresenta dificuldades em dados fora da distribuição de treino  
+
+Isso também explica os resultados observados na seção de **Rejeição por Baixa Confiança**, onde o modelo tende a ser mais conservador quando exposto a dados menos familiares.
+
+---
+
+### Considerações Finais
+
+O modelo desenvolvido possui características típicas de uma **Prova de Conceito (POC)**:
+
+- Dataset reduzido  
+- Baixa variabilidade dos dados  
+- Treinamento limitado por hardware  
+- Avaliação restrita a cenários controlados  
+
+---
+
+### Limitação para Produção
+
+Dessa forma:
+
+> O modelo **não está pronto para uso em produção em um ambiente real**.
+
+---
+
+## Próximas Melhorias
+
+- Aumentar diversidade do dataset  
+- Testar com imagens reais de produção em larga escala
+- Ajustar thresholds dinamicamente  
+- Fine-tuning mais profundo do backbone  
+
+---
 
 ## Execução local
 
@@ -642,6 +929,11 @@ python src\batch_infer_classifier.py `
   --output-dir artifacts\document_classifier\real_inference
 ```
 
+## Acesso ao modelo treinado
+
+O acesso ao modelo treinado pode ser feito via google drive: [modelos treinados](https://drive.google.com/file/d/1Z-SrtWMm5iA-Qg6H6izX0jqzxk1KXczt/view?usp=sharing)
+para usá-lo aplicando os comando apresentados basta colocar a pasta `mlartifacts` na pasta raiz do projeto. Na pasta há os dois modelos treinados nesse projeto.
+
 ## Docker, compose e YAML
 
 Na raiz há `Dockerfile` e `docker-compose.yml`.
@@ -660,7 +952,7 @@ O `Dockerfile` cria uma imagem Python 3.12 com dependências de OpenCV, Tesserac
 Serviços relevantes do `docker-compose.yml`:
 
 - `mlflow`: sobe MLflow em `http://localhost:5000`, com backend SQLite em `/app/mlruns/mlflow.db` e artefatos em `/app/mlartifacts`.
-- `trainer`: perfil `train`, depende de `mlflow`, monta o workspace e monta `/mnt/d/Lucas/dataset_augmented` em `/app/dataset_augmented`.
+- `trainer`: perfil `train`, depende de `mlflow`, monta o workspace e monta `./dataset_augmented` em `/app/dataset_augmented`.
 - `real-inference`: perfil `inference`, monta dataset externo em `/app/real_inference_dataset` como somente leitura.
 
 Subir MLflow:
@@ -683,7 +975,119 @@ docker compose --profile inference run --rm real-inference
 
 O projeto foi desenvolvido em Windows e testado com Docker para reduzir problemas de ambiente e deploy. Os caminhos `/mnt/d/...` indicam uso provável de montagem Windows/WSL no Docker. Se esses caminhos não existirem na máquina atual, os volumes devem ser ajustados antes da execução.
 
-Observação sobre o compose: o serviço `trainer` chama `python src/train_classifier.py`, que existe no workspace e é um wrapper fino para `document_classifier.train.main()`.
+**Obs.:** O caminho para a base ou para o arquivo que passara pelo classificador deve ser devidamente explicitado no documento `docker-compose.yml` que esta na pasta raiz.
+
+*Template:*
+
+```yml
+  trainer:
+    build: .
+    profiles:
+      - train
+    depends_on:
+      - mlflow
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - .:/app
+      - ./{PATH_DATASET}:/app/dataset_augmented
+    command: >
+      python src/train_classifier.py
+      --dataset-dir /app/dataset_augmented
+      --mlflow-tracking-uri http://mlflow:5000
+      --batch-size 32
+      --epochs 30
+      --learning-rate 0.0005
+      --weight-decay 0.00005
+      --run-name efficientnet_b0_bs4_ep10_lr5e4_blocks2
+
+  real-inference:
+    build: .
+    profiles:
+      - inference
+    depends_on:
+      - mlflow
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - .:/app
+      - ${REAL_INFERENCE_DATASET:-./{PATH_FILE_INFERENCE}:/app/real_inference_dataset:ro
+    command: >
+      python src/batch_infer_classifier.py
+      --dataset-dir /app/real_inference_dataset
+      --checkpoint /app/artifacts/document_classifier/best_model.pt
+      --output-dir /app/artifacts/document_classifier/${REAL_INFERENCE_OUTPUT:-real_inference}
+      --mlflow-tracking-uri http://mlflow:5000
+      --run-name ${REAL_INFERENCE_RUN_NAME:-real_inference}
+```
+
+* Treino:
+- PATH_DATASET_TRAIN: é o caminho até a base de treinamento que deve ter a seguinte estrutura (de forma que a classificação dos arquivos fica definida e portanto, o dataset fica rotulado e pronto para treinamento de uma CNN supervisionada):
+
+```text
+dataset/
+  CNH_Frente/
+  CNH_Verso/
+  RG_Frente/
+  RG_Verso/
+  CPF_Frente/
+  CPF_Verso/
+```
+
+* Inferência: 
+- PATH_FILE_INFERENCE: deve ser o caminho para a base de inferencia.
+
+*Exemplo:* colocando a pasta `sample_dataset_data_augmented_12` (disponibilizada via google drive) dentro da parta raiz do projeto.
+
+Dataset público disponível para testar o ORC + Parcing com imagens reais e imagens transformadas [sample_dataset_data_augmented_12](https://drive.google.com/file/d/131IEf4NyWsbFe61l_2ZoulUBG1t_Psv4/view?usp=sharing).
+
+```yml
+  trainer:
+    build: .
+    profiles:
+      - train
+    depends_on:
+      - mlflow
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - .:/app
+      - ./dataset_augmented:/app/dataset_augmented
+    command: >
+      python src/train_classifier.py
+      --dataset-dir /app/dataset_augmented
+      --mlflow-tracking-uri http://mlflow:5000
+      --batch-size 32
+      --epochs 30
+      --learning-rate 0.0005
+      --weight-decay 0.00005
+      --run-name efficientnet_b0_bs4_ep10_lr5e4_blocks2
+
+  real-inference:
+    build: .
+    profiles:
+      - inference
+    depends_on:
+      - mlflow
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - .:/app
+      - ${REAL_INFERENCE_DATASET:-./sample_dataset_inference}:/app/real_inference_dataset:ro
+    command: >
+      python src/batch_infer_classifier.py
+      --dataset-dir /app/real_inference_dataset
+      --checkpoint /app/artifacts/document_classifier/best_model.pt
+      --output-dir /app/artifacts/document_classifier/${REAL_INFERENCE_OUTPUT:-real_inference}
+      --mlflow-tracking-uri http://mlflow:5000
+      --run-name ${REAL_INFERENCE_RUN_NAME:-real_inference}
+```
+
+* Treino:
+- PATH_DATASET_TRAIN: dataset_augmented
+
+* Inferência: 
+- PATH_FILE_INFERENCE: sample_dataset_inference
 
 ## Ambiente e portabilidade
 
@@ -698,27 +1102,22 @@ Boas escolhas para Windows:
 
 ## Limitações do processo
 
-- Só imagens `.jpg` entram no treinamento; `.png` e outros formatos não são considerados por `is_training_image()`.
 - O modelo não aprende a classe `outros`; rejeição depende apenas de threshold de confiança.
 - Softmax pode ser excessivamente confiante em exemplos fora de distribuição.
-- O split é feito por grupo de origem, mas pressupõe que nomes de arquivos seguem a convenção com `__orig` e `__augNN`.
 - A estratificação é usada apenas quando há exemplos suficientes por classe.
 - Não há validação automática de balanceamento após augmentação além do split salvo.
 - O checkpoint depende dos metadados gravados corretamente.
-- `torch.load()` carrega checkpoints locais; não há assinatura/verificação criptográfica.
 - A avaliação externa infere ground truth pelo nome da pasta, o que pode mascarar erros se a estrutura estiver incorreta.
 
 ## Melhorias futuras
 
 - Adicionar calibração explícita de probabilidades, como temperature scaling.
 - Treinar uma estratégia dedicada para desconhecidos com dados `outros`, se houver dados reais suficientes.
-- Adicionar suporte a `.png`, `.jpeg` e outros formatos no treinamento, se necessário.
 - Registrar curvas de learning rate, precision/recall por classe e exemplos de erro.
 - Adicionar validação de distribuição por classe antes do treino.
 - Permitir configuração YAML para hiperparâmetros.
 - Criar testes unitários para split sem vazamento.
 - Salvar matriz de confusão também para validação.
-- Adicionar exportação ONNX ou TorchScript se houver necessidade de deploy.
 
 ## Padrões de projeto e boas práticas
 
@@ -730,11 +1129,8 @@ Boas escolhas para Windows:
 - Checkpoint com `metadata` suficiente para reconstrução na inferência.
 - Threshold de rejeição salvo junto do modelo.
 - Early stopping por validação para reduzir treino desnecessário.
-- Uso de seeds para maior reprodutibilidade.
 
 ## Relação com os outros subprojetos
-
-O classificador depende conceitualmente do dataset produzido por `data_augmentation`, embora também possa treinar com qualquer pasta compatível. A saída prevista é usada para informar o `document_type` esperado pelo OCR/parsing.
 
 ```text
 data_augmentation
