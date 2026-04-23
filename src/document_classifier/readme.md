@@ -627,10 +627,10 @@ Na inferência externa em lote, o MLflow recebe:
 
 ### Prints do MLFow do treinamento executado:
 
-![MLFlow home local](Documentos/MLFlow/home.png)
-![MLflow home de treinamento](Documentos/MLFlow/train_runs.png)
-![MLFlow parte das metricas e parametros de treinamento](Documentos/MLFlow/treinamento.png)
-![MLFlow treinamento alguns gráficos](Documentos/MLFlow/metricas_de_treinamento.png)
+![MLFlow home local](Documentos/home.png)
+![MLflow home de treinamento](Documentos/train_runs.png)
+![MLFlow parte das metricas e parametros de treinamento](Documentos/treinamento.png)
+![MLFlow treinamento alguns gráficos](Documentos/metricas_de_treinamento.png)
 
 ## Dados e metricas do treinamento realizado
 
